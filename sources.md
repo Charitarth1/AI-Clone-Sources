@@ -1,15 +1,19 @@
 # Sources — Weekly Signal Feed
-*Version 1.0 · May 2026 · For use by Agent 6 (signal parser) and the Monday managed agent*
+*Version 1.1 · May 2026 · For use by Agent 6 (signal parser) and the Sunday/Wednesday managed agents*
 
 ---
 
 ## How this file is used
 
-The Sunday morning managed agent reads this file to know which sources to check for AI governance and policy signals. It fetches the top stories, tags each by content pillar and urgency, and creates a Gmail draft brief to charitarthbharti@gmail.com.
+The Sunday and Wednesday managed agents read this file for signal criteria, pillar assignments, and what to ignore. They fetch stories using a hybrid approach:
+
+- **RSS feeds** for web publications (compact, low token cost)
+- **Gmail inbox** for newsletters you subscribe to (even lower cost — plain text, already in your inbox)
+- **Direct WebFetch** for regulatory bodies with no RSS or newsletter (EU AI Office, OPC, OSFI)
 
 Agent 6 (Daily Signal Parser) also reads this file when triggered manually with "Parse signals:" or "Daily brief:".
 
-To add or remove a source: edit this file and push to GitHub. The next agent run picks it up automatically.
+To add or remove a source: edit this file and push to GitHub. The next agent run picks it up automatically. When adding a newsletter source, also add its sender domain to the Gmail filter in the routine prompt at claude.ai/code/routines.
 
 For the Mistral-first pipeline (Section 6e of Agents.md):
 ```bash
@@ -39,7 +43,9 @@ ollama run mistral "$(cat sources.md)" > tagged_items.json
 | GZERO Media | https://gzeromedia.com/artificial-intelligence | AI geopolitics, US-China-EU power dynamics (active subscription) |
 | Gary Marcus — The Road to AI We Can Trust | https://garymarcus.substack.com | AI hype debunking, specific wrong claims named (creator reference) |
 | EU AI Office | https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai | EU AI Act guidance, implementation updates |
+| arXiv — CS.AI + CS.CY | https://arxiv.org/list/cs.AI/recent and https://arxiv.org/list/cs.CY/recent | New AI research preprints: safety, governance, fairness, bias, surveillance. cs.AI = core AI research. cs.CY = computers and society (governance angle). |
 | Collider | ⚠ URL TBD — confirm which publication | Flagged: the main "Collider" covers film/TV entertainment, which conflicts with persona constraints. Confirm the correct source and update this row. |
+| Sci-Hub | ⚠ Not recommended as an agent source | Sci-Hub hosts paywalled papers without authorization — legal exposure for automated access. Not a discovery feed either (no "recent papers" to browse). arXiv covers most AI research as free preprints. Flag if you need a specific paywalled paper and we can find an alternative. |
 
 ---
 
@@ -77,14 +83,67 @@ ollama run mistral "$(cat sources.md)" > tagged_items.json
 
 ---
 
+## Fetch method reference
+
+How each source is accessed by the managed agents. Update this table when adding new sources.
+
+### RSS feeds (web sources)
+
+These are fetched as RSS, not full web pages. Much lower token cost. Update the routine prompts if you change these URLs.
+
+| Source | RSS URL |
+|---|---|
+| WIRED AI | https://www.wired.com/feed/tag/artificial-intelligence/latest/rss |
+| MIT Technology Review | https://www.technologyreview.com/feed/ |
+| The Verge AI | https://www.theverge.com/rss/ai-artificial-intelligence/index.xml |
+| 404 Media | https://www.404media.co/rss/ |
+| TechCrunch AI | https://techcrunch.com/category/artificial-intelligence/feed/ |
+| Axios Tech | https://api.axios.com/feed/ |
+| The Markup | https://themarkup.org/feeds/rss.xml |
+| AI Now Institute | https://ainowinstitute.org/feed |
+| arXiv cs.AI | https://arxiv.org/rss/cs.AI |
+| arXiv cs.CY | https://arxiv.org/rss/cs.CY |
+
+### Gmail newsletters (inbox read — sender-scoped only)
+
+These are read directly from the Gmail inbox using `mcp__claude_ai_Gmail__search_threads` with an exact sender filter. The agent never reads emails outside this filter. Sunday run uses `newer_than:7d`; Wednesday run uses `newer_than:3d`.
+
+| Newsletter | Gmail sender domain |
+|---|---|
+| Import AI (Jack Clark) | importai.substack.com |
+| Gary Marcus — The Road to AI We Can Trust | garymarcus.substack.com |
+| Ethan Mollick — One Useful Thing | oneusefulthing.substack.com |
+| IAPP | iapp.org |
+| ICO (UK) — news and blogs | ico.org.uk |
+| Michael Geist's blog | michaelgeist.ca |
+| GZERO Media | gzeromedia.com |
+| Hogan Lovells AI blog | hldataprotection.com |
+
+To add a newsletter to Gmail reads: add its sender domain to this table, then update the `from:(...)` filter in both routine prompts at https://claude.ai/code/routines.
+
+### Direct WebFetch (no RSS or newsletter)
+
+These sources have no reliable RSS feed and don't send newsletters. Fetched directly only when the RSS + Gmail scan has not yet found 3 qualifying stories (Sunday) or 2 HOT stories (Wednesday).
+
+| Source | URL |
+|---|---|
+| EU AI Office | https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai |
+| OPC (Canada) | https://priv.gc.ca/en/opc-news/ |
+| OSFI | https://osfi-bsif.gc.ca/en/news-events/news/ |
+| Fast Company — Technology | https://fastcompany.com/technology |
+| Stanford HAI | https://hai.stanford.edu/news |
+| Columbia SIPA | https://sipa.columbia.edu/news |
+
+---
+
 ## Pillar-to-source mapping
 
 | Pillar | Primary sources |
 |---|---|
-| 1 — AI Literacy as Power | MIT Tech Review, WIRED, Import AI, Fast Company |
-| 2 — Responsible AI and Governance | ICO, EU AI Office, NIST AI, OPC, OSFI, Hogan Lovells, IAPP |
-| 3 — Human-Centric Technology | AI Now Institute, The Markup, 404 Media, Stanford HAI |
-| 4 — AI as Civilizational Inflection | Import AI, Gary Marcus, Stanford HAI, GZERO |
+| 1 — AI Literacy as Power | MIT Tech Review, WIRED, Import AI, Fast Company, arXiv cs.CY |
+| 2 — Responsible AI and Governance | ICO, EU AI Office, NIST AI, OPC, OSFI, Hogan Lovells, IAPP, arXiv cs.CY |
+| 3 — Human-Centric Technology | AI Now Institute, The Markup, 404 Media, Stanford HAI, arXiv cs.CY |
+| 4 — AI as Civilizational Inflection | Import AI, Gary Marcus, Stanford HAI, GZERO, arXiv cs.AI |
 | 5 — The Entrepreneurship Wave | MIT Tech Review, WIRED, One Useful Thing, Fast Company |
 | 6 — AI Democratization vs Concentration | GZERO, Al Jazeera, House Foreign Affairs, Import AI, Axios |
 | 7 — State Surveillance and AI | The Markup, 404 Media, AI Now Institute, MediaNama, The Wire, ICO |
@@ -195,3 +254,4 @@ These are logged as consulting signals. Not used for content during brand-buildi
 |---|---|
 | May 2026 | Full rebuild from LinkedIn archive, YouTube subscriptions, and content pillar analysis |
 | May 2026 | Added The Verge, 404 Media, Axios, TechCrunch, Fast Company, IAPP to Tier 1. Collider flagged pending clarification. |
+| May 2026 | v1.1: Switched fetch architecture to RSS-first + Gmail newsletter reads. Added Fetch method reference section. Prompt-level fetch budget guardrails added to both routines. Gmail sender-scoped reads for 8 newsletter sources. |
